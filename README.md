@@ -17,8 +17,8 @@ A full-featured real-time communication platform built with Node.js, React, and 
 ## Prerequisites
 
 - Node.js 18+
-- PostgreSQL 14+
 - npm 9+
+- A [Neon](https://neon.tech) account (free tier available) for the online PostgreSQL database
 
 ## Installation
 
@@ -30,19 +30,31 @@ cd chatv1
 cp .env.example .env
 ```
 
-### 2. Backend Setup
+### 2. Set Up Neon Database
+
+1. Sign up at [neon.tech](https://neon.tech) and create a new project.
+2. In your Neon project dashboard, go to **Connection Details**.
+3. Copy the **Pooled connection** string — this is your `DATABASE_URL`.
+4. Copy the **Direct connection** string — this is your `DIRECT_DATABASE_URL`.
+5. Both URLs look like:
+   ```
+   postgresql://<user>:<password>@<host>.neon.tech/<dbname>?sslmode=require
+   ```
+   The pooled URL additionally includes `&pgbouncer=true&connect_timeout=15`.
+
+### 3. Backend Setup
 
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env with your PostgreSQL credentials and secrets
+# Edit .env and fill in your Neon DATABASE_URL, DIRECT_DATABASE_URL, and JWT secrets
 npm install
 npm run db:generate
 npm run db:migrate
 npm run dev
 ```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 
 ```bash
 cd frontend
@@ -50,7 +62,7 @@ npm install
 npm run dev
 ```
 
-### 4. Desktop Setup (optional)
+### 5. Desktop Setup (optional)
 
 ```bash
 cd desktop
@@ -64,13 +76,17 @@ npm run dev
 
 | Variable | Description | Default |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | - |
+| `DATABASE_URL` | Neon pooled connection string (runtime) | - |
+| `DIRECT_DATABASE_URL` | Neon direct connection string (migrations) | - |
 | `JWT_SECRET` | JWT signing secret | - |
 | `JWT_REFRESH_SECRET` | Refresh token secret | - |
 | `PORT` | Server port | `3001` |
 | `FRONTEND_URL` | Frontend URL for CORS | `http://localhost:5173` |
 | `UPLOAD_DIR` | File upload directory | `uploads` |
 | `MAX_FILE_SIZE` | Max upload size in bytes | `10485760` |
+
+> **Why two database URLs?**  
+> Neon uses PgBouncer connection pooling. The pooled `DATABASE_URL` is used at runtime for efficiency. The direct `DIRECT_DATABASE_URL` bypasses the pooler and is required by Prisma for schema migrations.
 
 ## Architecture
 
@@ -85,7 +101,7 @@ chatv1/
 
 - **Express** REST API with JWT authentication
 - **Socket.IO** for real-time messaging, presence, typing indicators
-- **Prisma ORM** with PostgreSQL
+- **Prisma ORM** with Neon PostgreSQL (online, serverless)
 - **Multer** for file uploads
 - WebRTC signaling server for voice calls
 
@@ -143,3 +159,4 @@ cd frontend && npm test
 | `presence:update` | Bidirectional | Status updates |
 | `voice:join/leave` | Client→Server | Voice channel |
 | `voice:offer/answer/ice-candidate` | Bidirectional | WebRTC signaling |
+
