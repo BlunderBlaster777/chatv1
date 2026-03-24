@@ -93,7 +93,7 @@ export default function VoiceCall({ channel, currentUser }: VoiceCallProps) {
 
   const toggleMute = () => {
     if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = muted; });
+      localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = !muted; });
       setMuted(!muted);
     }
   };

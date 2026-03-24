@@ -23,7 +23,7 @@ export const upload = multer({
     const allowedTypes = /jpeg|jpg|png|gif|webp|mp4|webm|mp3|ogg|wav|pdf|txt|doc|docx|zip/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    if (extname || mimetype) {
+    if (extname && mimetype) {
       cb(null, true);
     } else {
       cb(new Error('File type not allowed'));
