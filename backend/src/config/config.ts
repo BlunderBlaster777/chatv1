@@ -11,4 +11,5 @@ export const config = {
   uploadDir: process.env.UPLOAD_DIR || 'uploads',
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10),
   databaseUrl: process.env.DATABASE_URL || '',
+  directDatabaseUrl: process.env.DIRECT_DATABASE_URL || '',
 };
