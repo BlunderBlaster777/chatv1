@@ -14,8 +14,13 @@ export function setupChatHandlers(io: SocketIOServer, socket: Socket, userId: st
 
   socket.on('chat:message', async (data: { channelId: string; content: string }) => {
     try {
+      const content = data.content?.trim();
+      if (!content || content.length > 4000) {
+        socket.emit('error', { message: 'Message content is required (max 4000 characters)' });
+        return;
+      }
       const message = await prisma.message.create({
-        data: { content: data.content, authorId: userId, channelId: data.channelId },
+        data: { content, authorId: userId, channelId: data.channelId },
         include: {
           author: { select: { id: true, username: true, avatar: true } },
           reactions: true,
@@ -23,18 +28,21 @@ export function setupChatHandlers(io: SocketIOServer, socket: Socket, userId: st
         },
       });
       io.to(`channel:${data.channelId}`).emit('chat:message', message);
-    } catch {
+    } catch (err) {
+      console.error('chat:message error:', err);
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
 
   socket.on('chat:edit', async (data: { messageId: string; content: string }) => {
     try {
+      const content = data.content?.trim();
+      if (!content || content.length > 4000) return;
       const message = await prisma.message.findUnique({ where: { id: data.messageId } });
       if (!message || message.authorId !== userId) return;
       const updated = await prisma.message.update({
         where: { id: data.messageId },
-        data: { content: data.content, editedAt: new Date() },
+        data: { content, editedAt: new Date() },
         include: {
           author: { select: { id: true, username: true, avatar: true } },
           reactions: true,
@@ -42,7 +50,9 @@ export function setupChatHandlers(io: SocketIOServer, socket: Socket, userId: st
         },
       });
       io.to(`channel:${message.channelId}`).emit('chat:edit', updated);
-    } catch {}
+    } catch (err) {
+      console.error('chat:edit error:', err);
+    }
   });
 
   socket.on('chat:delete', async (data: { messageId: string }) => {
@@ -54,7 +64,9 @@ export function setupChatHandlers(io: SocketIOServer, socket: Socket, userId: st
         messageId: data.messageId,
         channelId: message.channelId,
       });
-    } catch {}
+    } catch (err) {
+      console.error('chat:delete error:', err);
+    }
   });
 
   socket.on('chat:reaction', async (data: { messageId: string; emoji: string }) => {
@@ -78,7 +90,9 @@ export function setupChatHandlers(io: SocketIOServer, socket: Socket, userId: st
         },
       });
       io.to(`channel:${message.channelId}`).emit('chat:reaction', updatedMessage);
-    } catch {}
+    } catch (err) {
+      console.error('chat:reaction error:', err);
+    }
   });
 
   socket.on('typing:start', (data: { channelId: string }) => {

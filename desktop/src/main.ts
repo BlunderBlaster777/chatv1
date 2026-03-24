@@ -55,5 +55,5 @@ ipcMain.on('show-notification', (_event, title: string, body: string) => {
 });
 
 ipcMain.on('set-badge', (_event, count: number) => {
-  if (process.platform === 'darwin') app.dock.setBadge(count > 0 ? String(count) : '');
+  if (process.platform === 'darwin') app.dock?.setBadge(count > 0 ? String(count) : '');
 });

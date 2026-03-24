@@ -1,4 +1,3 @@
-import React from 'react';
 import { Server, Channel, Message, ServerMember, User } from '../../types';
 import ServerSidebar from './ServerSidebar';
 import ChannelSidebar from './ChannelSidebar';

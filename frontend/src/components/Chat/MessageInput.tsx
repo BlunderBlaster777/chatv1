@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Channel } from '../../types';
 import { useSocket } from '../../contexts/SocketContext';
 import apiClient from '../../api/client';
