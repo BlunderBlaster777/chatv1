@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface Toast {
   id: string;
@@ -10,9 +10,9 @@ interface ToastContextType {
   showToast: (message: string, type?: Toast['type']) => void;
 }
 
-export const ToastContext = React.createContext<ToastContextType>({ showToast: () => {} });
+export const ToastContext = createContext<ToastContextType>({ showToast: () => {} });
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = (message: string, type: Toast['type'] = 'info') => {
@@ -46,5 +46,5 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useToast() {
-  return React.useContext(ToastContext);
+  return useContext(ToastContext);
 }
