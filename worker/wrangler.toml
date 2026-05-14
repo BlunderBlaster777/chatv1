@@ -1,0 +1,25 @@
+name = "mini-discord-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mini-discord-db"
+database_id = "YOUR_D1_DATABASE_ID_HERE"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "mini-discord-uploads"
+
+[durable_objects]
+bindings = [
+  { name = "CHAT_ROOM", class_name = "ChatRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]
+
+[vars]
+CORS_ORIGIN = "http://localhost:3000"
