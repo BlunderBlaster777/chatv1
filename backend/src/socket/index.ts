@@ -5,6 +5,7 @@ import { config } from '../config/config';
 import { setupChatHandlers } from './chat.handler';
 import { setupPresenceHandlers } from './presence.handler';
 import { setupWebRTCHandlers } from './webrtc.handler';
+import { setupDMHandlers } from './dm.handler';
 
 export function setupSocketIO(httpServer: HTTPServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
@@ -29,6 +30,7 @@ export function setupSocketIO(httpServer: HTTPServer): SocketIOServer {
     setupChatHandlers(io, socket, userId);
     setupPresenceHandlers(io, socket, userId);
     setupWebRTCHandlers(io, socket, userId);
+    setupDMHandlers(io, socket, userId);
   });
 
   return io;

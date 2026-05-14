@@ -29,60 +29,58 @@ export default function RegisterForm({ onSuccess }: RegisterFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label style={labelStyle}>Username</label>
+        <label htmlFor="reg-username" className="block text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+          Username
+        </label>
         <input
-          style={inputStyle}
+          id="reg-username"
           type="text"
           value={username}
           onChange={e => setUsername(e.target.value)}
           required
-          placeholder="Enter username"
+          placeholder="yourname"
           minLength={3}
+          className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors"
         />
       </div>
       <div>
-        <label style={labelStyle}>Email</label>
+        <label htmlFor="reg-email" className="block text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+          Email
+        </label>
         <input
-          style={inputStyle}
+          id="reg-email"
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
-          placeholder="Enter your email"
+          placeholder="you@example.com"
+          className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors"
         />
       </div>
       <div>
-        <label style={labelStyle}>Password</label>
+        <label htmlFor="reg-password" className="block text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+          Password
+        </label>
         <input
-          style={inputStyle}
+          id="reg-password"
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
-          placeholder="Create a password"
+          placeholder="••••••••"
           minLength={8}
+          className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors"
         />
       </div>
-      <button type="submit" disabled={loading} style={buttonStyle}>
-        {loading ? 'Creating account...' : 'Register'}
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors mt-1"
+      >
+        {loading ? 'Creating account…' : 'Create Account'}
       </button>
     </form>
   );
 }
-
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '12px', fontWeight: 700,
-  textTransform: 'uppercase', color: '#b9bbbe', marginBottom: '8px',
-};
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px', background: '#202225',
-  border: '1px solid #040405', borderRadius: '4px',
-  color: '#dcddde', fontSize: '16px', outline: 'none',
-};
-const buttonStyle: React.CSSProperties = {
-  width: '100%', padding: '12px', background: '#7289da',
-  border: 'none', borderRadius: '4px', color: '#fff',
-  fontSize: '16px', fontWeight: 700, cursor: 'pointer', marginTop: '8px',
-};

@@ -41,6 +41,23 @@ router.put('/me', authenticate, async (req: AuthRequest, res: Response) => {
   } catch { res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// Search / list all users (excluding self) — used by the DM user picker
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const q = (req.query.q as string | undefined)?.trim();
+    const users = await prisma.user.findMany({
+      where: {
+        id: { not: req.userId },
+        ...(q && { username: { contains: q, mode: 'insensitive' } }),
+      },
+      select: { id: true, username: true, avatar: true, status: true, statusMessage: true },
+      orderBy: { username: 'asc' },
+      take: 50,
+    });
+    res.json(users);
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({

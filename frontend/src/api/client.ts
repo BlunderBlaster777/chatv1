@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const apiClient = axios.create({ baseURL: '/api', withCredentials: true });
+// In development, VITE_API_URL is unset and the Vite proxy forwards /api → localhost:3001.
+// In production (Cloudflare Pages), VITE_API_URL=https://your-backend.railway.app.
+const API_ORIGIN = import.meta.env.VITE_API_URL ?? '';
+
+const apiClient = axios.create({
+  baseURL: `${API_ORIGIN}/api`,
+  withCredentials: true,
+});
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
@@ -17,7 +24,7 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          const { data } = await axios.post('/api/auth/refresh', { refreshToken });
+          const { data } = await axios.post(`${API_ORIGIN}/api/auth/refresh`, { refreshToken });
           localStorage.setItem('accessToken', data.accessToken);
           localStorage.setItem('refreshToken', data.refreshToken);
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;

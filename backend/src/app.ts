@@ -40,6 +40,29 @@ export function createApp() {
   app.use('/api/messages', apiLimiter, messageRoutes);
   app.use('/api/files', apiLimiter, fileRoutes);
 
+  // List all DM conversations for the current user (one entry per unique partner)
+  app.get('/api/dms', apiLimiter, authenticate, async (req: AuthRequest, res) => {
+    try {
+      const dms = await prisma.directMessage.findMany({
+        where: { OR: [{ senderId: req.userId }, { receiverId: req.userId }] },
+        include: {
+          sender: { select: { id: true, username: true, avatar: true, status: true } },
+          receiver: { select: { id: true, username: true, avatar: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      // Collapse to one entry per conversation partner, keeping the latest message
+      const seen = new Map<string, object>();
+      for (const dm of dms) {
+        const partner = dm.senderId === req.userId ? dm.receiver : dm.sender;
+        if (!seen.has(partner.id)) {
+          seen.set(partner.id, { user: partner, lastMessage: dm });
+        }
+      }
+      res.json(Array.from(seen.values()));
+    } catch { res.status(500).json({ error: 'Internal server error' }); }
+  });
+
   // Direct messages routes
   app.get('/api/dms/:userId', apiLimiter, authenticate, async (req: AuthRequest, res) => {
     try {

@@ -17,36 +17,44 @@ export default function MessageList({ messages, currentUser, onEdit, onDelete, t
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  if (messages.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+        </div>
+        <p className="text-zinc-300 font-semibold text-sm mb-1">No messages yet</p>
+        <p className="text-zinc-500 text-xs">Be the first to say something.</p>
+      </div>
+    );
+  }
+
   return (
-    <div style={{
-      flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column',
-      paddingTop: '16px', paddingBottom: '8px',
-    }}>
-      {messages.length === 0 && (
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', color: '#72767d',
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#dcddde', marginBottom: '8px' }}>
-            No messages yet
-          </div>
-          <div>Be the first to say something!</div>
-        </div>
-      )}
-      {messages.map((message) => (
-        <MessageItem
-          key={message.id}
-          message={message}
-          currentUser={currentUser}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      ))}
+    <div className="flex-1 overflow-y-auto flex flex-col py-4">
+      {messages.map((message, i) => {
+        const prev = messages[i - 1];
+        const isGrouped =
+          prev &&
+          prev.author.id === message.author.id &&
+          new Date(message.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
+        return (
+          <MessageItem
+            key={message.id}
+            message={message}
+            currentUser={currentUser}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            isGrouped={isGrouped}
+          />
+        );
+      })}
+
       {typingUsers.length > 0 && (
-        <div style={{ padding: '4px 16px', fontSize: '13px', color: '#b9bbbe', fontStyle: 'italic' }}>
-          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
-        </div>
+        <p className="px-5 pt-1 pb-2 text-xs text-zinc-500 italic">
+          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing…
+        </p>
       )}
       <div ref={bottomRef} />
     </div>

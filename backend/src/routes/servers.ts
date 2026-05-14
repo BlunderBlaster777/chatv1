@@ -22,6 +22,16 @@ const createChannelSchema = z.object({
   type: z.enum(['TEXT', 'VOICE']).optional(),
 });
 
+const updateChannelSchema = z.object({
+  minRole: z.enum(['MEMBER', 'ADMIN', 'OWNER']),
+});
+
+const updateMemberRoleSchema = z.object({
+  role: z.enum(['ADMIN', 'MEMBER']),
+});
+
+const ROLE_RANK: Record<string, number> = { MEMBER: 0, ADMIN: 1, OWNER: 2 };
+
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const memberships = await prisma.serverMember.findMany({
@@ -120,13 +130,19 @@ router.get('/:id/members', authenticate, async (req: AuthRequest, res: Response)
   } catch { res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// Channels — list (filtered by caller's role)
 router.get('/:id/channels', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const member = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.userId! } },
+    });
+    const userRank = member ? (ROLE_RANK[member.role] ?? 0) : 0;
     const channels = await prisma.channel.findMany({ where: { serverId: req.params.id } });
-    res.json(channels);
+    res.json(channels.filter(c => ROLE_RANK[c.minRole] <= userRank));
   } catch { res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// Channels — create
 router.post('/:id/channels', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const parsed = createChannelSchema.safeParse(req.body);
@@ -141,6 +157,113 @@ router.post('/:id/channels', authenticate, async (req: AuthRequest, res: Respons
       data: { name: parsed.data.name, type: parsed.data.type ?? 'TEXT', serverId: req.params.id },
     });
     res.status(201).json(channel);
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// Channels — update minRole
+router.patch('/:id/channels/:channelId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const parsed = updateChannelSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid minRole value' }); return; }
+    const member = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.userId! } },
+    });
+    if (!member || !['OWNER', 'ADMIN'].includes(member.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' }); return;
+    }
+    const channel = await prisma.channel.update({
+      where: { id: req.params.channelId },
+      data: { minRole: parsed.data.minRole },
+    });
+    res.json(channel);
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// Channels — delete
+router.delete('/:id/channels/:channelId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const member = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.userId! } },
+    });
+    if (!member || !['OWNER', 'ADMIN'].includes(member.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' }); return;
+    }
+    await prisma.channel.delete({ where: { id: req.params.channelId } });
+    res.json({ message: 'Channel deleted' });
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// Members — add (search + instant add)
+router.post('/:id/members', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) { res.status(400).json({ error: 'userId required' }); return; }
+    const caller = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.userId! } },
+    });
+    if (!caller || !['OWNER', 'ADMIN'].includes(caller.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' }); return;
+    }
+    const existing = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId } },
+    });
+    if (existing) { res.status(400).json({ error: 'Already a member' }); return; }
+    const member = await prisma.serverMember.create({
+      data: { serverId: req.params.id, userId, role: 'MEMBER' },
+      include: { user: { select: { id: true, username: true, avatar: true, status: true, statusMessage: true } } },
+    });
+    res.status(201).json(member);
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// Members — update role
+router.patch('/:id/members/:userId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const parsed = updateMemberRoleSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'role must be ADMIN or MEMBER' }); return; }
+    const caller = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.userId! } },
+    });
+    if (!caller || caller.role !== 'OWNER') {
+      res.status(403).json({ error: 'Only the server owner can change roles' }); return;
+    }
+    const target = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.params.userId } },
+    });
+    if (!target || target.role === 'OWNER') {
+      res.status(400).json({ error: 'Cannot change owner role' }); return;
+    }
+    const updated = await prisma.serverMember.update({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.params.userId } },
+      data: { role: parsed.data.role },
+      include: { user: { select: { id: true, username: true, avatar: true, status: true, statusMessage: true } } },
+    });
+    res.json(updated);
+  } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// Members — remove
+router.delete('/:id/members/:userId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const caller = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.userId! } },
+    });
+    if (!caller || !['OWNER', 'ADMIN'].includes(caller.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' }); return;
+    }
+    const target = await prisma.serverMember.findUnique({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.params.userId } },
+    });
+    if (!target || target.role === 'OWNER') {
+      res.status(400).json({ error: 'Cannot remove the server owner' }); return;
+    }
+    if (caller.role === 'ADMIN' && target.role === 'ADMIN') {
+      res.status(403).json({ error: 'Admins cannot remove other admins' }); return;
+    }
+    await prisma.serverMember.delete({
+      where: { serverId_userId: { serverId: req.params.id, userId: req.params.userId } },
+    });
+    res.json({ message: 'Member removed' });
   } catch { res.status(500).json({ error: 'Internal server error' }); }
 });
 

@@ -25,6 +25,7 @@ export interface Channel {
   name: string;
   type: 'TEXT' | 'VOICE';
   serverId: string;
+  minRole?: 'MEMBER' | 'ADMIN' | 'OWNER';
   createdAt?: string;
 }
 

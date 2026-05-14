@@ -10,7 +10,7 @@ function createWindow() {
     height: 800,
     minWidth: 1280,
     minHeight: 800,
-    backgroundColor: '#36393f',
+    backgroundColor: '#0d0d12',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -23,7 +23,6 @@ function createWindow() {
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../frontend/dist/index.html'));
   }

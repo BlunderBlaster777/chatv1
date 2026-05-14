@@ -25,7 +25,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
     const token = localStorage.getItem('accessToken');
     if (!token) return;
-    const socket = io('/', { auth: { token }, transports: ['websocket', 'polling'] });
+    // In dev, connect to '/' (Vite proxy forwards /socket.io → backend).
+    // In prod, connect directly to the backend origin via VITE_API_URL.
+    const socket = io(import.meta.env.VITE_API_URL ?? '/', { auth: { token }, transports: ['websocket', 'polling'] });
     socketRef.current = socket;
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));

@@ -2,7 +2,10 @@ node_modules/
 dist/
 build/
 .env
+.env.local
+.env.production
 *.log
 uploads/
 .DS_Store
 coverage/
+.wrangler/

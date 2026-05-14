@@ -62,49 +62,52 @@ export default function MessageInput({ channel, onSendMessage }: MessageInputPro
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const canSend = content.trim().length > 0;
+
   return (
-    <div style={{ padding: '0 16px 16px 16px' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', background: '#40444b',
-        borderRadius: '8px', padding: '0 8px',
-      }}>
+    <div className="px-3 lg:px-4 pb-3 lg:pb-4 shrink-0">
+      <div className="flex items-end gap-2 bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 focus-within:border-zinc-600 transition-colors">
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
-          style={{
-            background: 'none', border: 'none', color: '#b9bbbe',
-            cursor: 'pointer', padding: '12px 8px', fontSize: '20px', lineHeight: 1,
-          }}
-          title="Upload file"
+          title="Attach file"
+          className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 shrink-0 mb-0.5"
         >
-          +
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
         </button>
         <input
           ref={fileInputRef}
           type="file"
           onChange={handleFileUpload}
-          style={{ display: 'none' }}
+          className="hidden"
+          aria-label="File upload"
         />
-        <input
+        <textarea
           value={content}
           onChange={e => { setContent(e.target.value); startTyping(); }}
           onKeyDown={handleKeyDown}
           placeholder={`Message #${channel.name}`}
-          style={{
-            flex: 1, background: 'none', border: 'none', color: '#dcddde',
-            fontSize: '15px', padding: '12px 8px', outline: 'none',
-          }}
+          rows={1}
+          aria-label={`Message #${channel.name}`}
+          className="flex-1 bg-transparent text-zinc-100 placeholder-zinc-500 text-base resize-none outline-none leading-relaxed max-h-40 overflow-y-auto no-scrollbar"
         />
         <button
+          type="button"
           onClick={handleSend}
-          disabled={!content.trim()}
-          style={{
-            background: content.trim() ? '#7289da' : '#40444b',
-            border: 'none', borderRadius: '4px', color: content.trim() ? '#fff' : '#72767d',
-            cursor: content.trim() ? 'pointer' : 'default',
-            padding: '6px 12px', fontSize: '14px', fontWeight: 700, transition: 'all 0.15s',
-          }}
+          disabled={!canSend}
+          title="Send message"
+          className={`p-1.5 rounded-lg transition-all shrink-0 mb-0.5 ${
+            canSend
+              ? 'bg-violet-600 hover:bg-violet-500 text-white'
+              : 'text-zinc-600 cursor-not-allowed'
+          }`}
         >
-          Send
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
         </button>
       </div>
     </div>
