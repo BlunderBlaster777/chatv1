@@ -1,263 +1,360 @@
 # BlockChat
 
-A full-featured real-time communication platform: servers, channels, direct messages, voice, and role-based permissions.
+BlockChat is a Discord-style chat app with servers, channels, DMs, role-based permissions, voice channels, and an Electron wrapper.
 
-**Stack:** React · TypeScript · Vite · Tailwind CSS · Node.js · Express · Socket.IO · Prisma · Neon PostgreSQL · Electron
+This repository now supports a Cloudflare-first deployment model:
 
----
+| Surface | Runtime | Status |
+| --- | --- | --- |
+| Frontend | Cloudflare Pages | Ready |
+| API | Cloudflare Workers | Ready |
+| Database | Neon PostgreSQL | Ready |
+| Local dev backend | Express + Socket.IO | Preserved |
 
-## Features
+## What changed
 
-- JWT authentication with refresh tokens
-- Real-time messaging via Socket.IO
-- Servers with text and voice channels
-- Role-based channel permissions (Owner / Admin / Member)
-- Server management: add/remove members, create/delete channels
-- Direct messages with bubble-style chat
-- Typing indicators and presence (online/away/DND/offline)
-- Message editing, deletion, and emoji reactions
-- File uploads
-- Voice channels with WebRTC
-- Toast and desktop notifications
-- Mobile-responsive layout with slide-in drawers
-- Electron desktop app
+The project used to assume this split:
 
----
+- frontend on Cloudflare Pages
+- backend on Railway
 
-## Architecture
+It now ships with a dedicated Worker entrypoint in backend/src/worker.ts and Wrangler config in backend/wrangler.jsonc, so you can deploy the API directly to Cloudflare Workers while keeping the original Express server for local development.
 
-```
+Because the old production backend depended on Node HTTP sockets and local disk storage, the Cloudflare deployment currently runs in a Cloudflare-safe mode:
+
+- authentication works
+- servers, channels, members, messages, and DMs work
+- the frontend automatically falls back to REST polling when realtime is disabled
+- voice channels are shown but disabled in Cloudflare deployment
+- file uploads are disabled in Cloudflare deployment until you add object storage such as R2
+
+That means the app is deployable to Cloudflare today without pretending Socket.IO-on-Workers is already solved.
+
+## Repository layout
+
+```text
 chatv1/
-├── backend/     # Express · Socket.IO · Prisma · Neon PostgreSQL
-├── frontend/    # React · Vite · Tailwind CSS
-└── desktop/     # Electron wrapper
+├── backend/      Express local dev server + Cloudflare Worker entrypoint
+├── frontend/     React + Vite app for Cloudflare Pages
+├── desktop/      Electron shell for local/desktop use
+└── README.md
 ```
 
----
+## Deployment modes
 
-## Local Development
+### Local development mode
 
-### Prerequisites
+Use this if you want the full original feature set, including Socket.IO, typing indicators, and voice signaling.
 
-- Node.js 18+
-- npm 9+
-- A [Neon](https://neon.tech) account (free tier)
+- backend runs with Express on port 3001
+- frontend runs with Vite on port 5173
+- Vite proxies API and Socket.IO traffic to the backend
+- uploads are stored in backend/uploads
 
-### 1. Clone and install
+### Cloudflare deployment mode
+
+Use this for Pages + Workers + Neon.
+
+- frontend deploys as a static Vite build on Pages
+- backend deploys as a Worker using backend/src/worker.ts
+- API calls go directly to the Worker URL
+- UI uses polling instead of Socket.IO by default
+- voice and file uploads are explicitly disabled
+
+## Prerequisites
+
+- Node.js 20+
+- npm 10+
+- a Neon PostgreSQL database
+- a Cloudflare account
+- Wrangler authenticated with your Cloudflare account
+
+Log in once before deploying:
 
 ```bash
-git clone <repo-url>
-cd chatv1
+npx wrangler login
 ```
 
-### 2. Set up Neon database
+## Local development setup
 
-1. Sign up at [neon.tech](https://neon.tech) and create a project.
-2. In **Connection Details**, copy:
-   - **Pooled connection** string → `DATABASE_URL`
-   - **Direct connection** string → `DIRECT_DATABASE_URL`
-
-### 3. Backend
+### 1. Install dependencies
 
 ```bash
-cd backend
-cp .env.example .env
-# Edit .env — fill in DATABASE_URL, DIRECT_DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET
+cd chatv1/backend
 npm install
+
+cd ../frontend
+npm install
+
+cd ../desktop
+npm install
+```
+
+### 2. Configure Neon
+
+Create your Neon project if you have not already, then copy:
+
+- pooled connection string into DATABASE_URL
+- direct connection string into DIRECT_DATABASE_URL
+
+### 3. Configure backend env
+
+Copy backend/.env.example to backend/.env and set at least:
+
+```env
+DATABASE_URL=...
+DIRECT_DATABASE_URL=...
+JWT_SECRET=...
+JWT_REFRESH_SECRET=...
+FRONTEND_URL=http://localhost:5173
+APP_MODE=local
+```
+
+### 4. Run Prisma setup
+
+```bash
+cd chatv1/backend
 npm run db:generate
 npm run db:migrate
-npm run dev
 ```
 
-Backend runs on `http://localhost:3001`.
-
-### 4. Frontend
+### 5. Start the local backend
 
 ```bash
-cd frontend
-npm install
+cd chatv1/backend
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`. The Vite dev server proxies `/api` and `/socket.io` to the backend automatically — no extra config needed.
+The Express backend is available at http://localhost:3001.
 
-### 5. Desktop (optional)
+### 6. Configure frontend env
+
+Copy frontend/.env.example to frontend/.env.
+
+For local development you can leave VITE_API_URL empty and keep realtime enabled:
+
+```env
+VITE_API_URL=
+VITE_REALTIME_ENABLED=true
+VITE_FILE_UPLOADS_ENABLED=true
+VITE_POLL_INTERVAL_MS=5000
+```
+
+### 7. Start the frontend
 
 ```bash
-cd desktop
-npm install
+cd chatv1/frontend
 npm run dev
 ```
 
----
+The frontend is available at http://localhost:5173.
 
-## Deploying to Production
+### 8. Start Electron if needed
 
-The deployment splits into two services:
+```bash
+cd chatv1/desktop
+npm run dev
+```
 
-| Service | Host | What runs there |
-|---|---|---|
-| Frontend | Cloudflare Pages | React/Vite static build |
-| Backend | Railway | Express + Socket.IO + Prisma |
-| Database | Neon | PostgreSQL (existing) |
+## Cloudflare deployment
 
-### Step 1 — Deploy the backend to Railway
+## Overview
 
-1. Create a free account at [railway.app](https://railway.app).
+Production now looks like this:
 
-2. Click **New Project → Deploy from GitHub repo**, select this repository, and set the **Root Directory** to `chatv1/backend`.
+```text
+Browser
+  -> Cloudflare Pages (frontend)
+  -> Cloudflare Worker (API)
+  -> Neon PostgreSQL
+```
 
-3. Railway will detect `railway.toml` and build automatically.
+The Worker does not use DIRECT_DATABASE_URL at runtime. You still need DIRECT_DATABASE_URL anywhere you run Prisma migrations.
 
-4. In the Railway project, go to **Variables** and add:
+## Step 1. Run production migrations
 
-   | Variable | Value |
-   |---|---|
-   | `NODE_ENV` | `production` |
-   | `DATABASE_URL` | Your Neon pooled connection string |
-   | `DIRECT_DATABASE_URL` | Your Neon direct connection string |
-   | `JWT_SECRET` | A long random string (use `openssl rand -hex 32`) |
-   | `JWT_REFRESH_SECRET` | Another long random string |
-   | `FRONTEND_URL` | `https://your-project.pages.dev` (set after step 2) |
-   | `PORT` | `3001` |
+Run migrations from your machine or CI before the first deploy and whenever the schema changes.
 
-5. Under **Settings → Networking**, enable **Public Networking**. Copy the generated URL — it looks like `https://chatv1-production-xxxx.railway.app`. You'll need it in the next step.
+```bash
+cd chatv1/backend
+npm run db:migrate:deploy
+```
 
-6. Run the database migration. In the Railway project shell (or locally with prod env vars):
+Use production credentials when you run that command:
 
-   ```bash
-   npx prisma migrate deploy
-   ```
+```env
+DATABASE_URL=your-neon-pooled-url
+DIRECT_DATABASE_URL=your-neon-direct-url
+```
 
-### Step 2 — Deploy the frontend to Cloudflare Pages
+## Step 2. Configure the Worker
 
-**Option A: Wrangler CLI (recommended)**
+Install backend dependencies if you have not already:
+
+```bash
+cd chatv1/backend
+npm install
+```
+
+Set Worker secrets:
+
+```bash
+npx wrangler secret put DATABASE_URL
+npx wrangler secret put JWT_SECRET
+npx wrangler secret put JWT_REFRESH_SECRET
+```
+
+Set the frontend origin as a Worker variable.
+
+In backend/wrangler.jsonc, update FRONTEND_URL to your real Pages hostname after you know it, or set it in Cloudflare dashboard per environment.
+
+Default Worker vars in this repo:
+
+```json
+{
+  "APP_MODE": "cloudflare",
+  "FRONTEND_URL": "https://your-project.pages.dev"
+}
+```
+
+### Optional local Worker dev
+
+If you want to run the Worker locally instead of the Express server, copy backend/.dev.vars.example to backend/.dev.vars and fill it in, then run:
+
+```bash
+cd chatv1/backend
+npm run dev:worker
+```
+
+### Deploy the Worker
+
+```bash
+cd chatv1/backend
+npm run deploy:worker
+```
+
+### Validate the Worker build without deploying
+
+```bash
+cd chatv1/backend
+npm run check:worker
+```
+
+## Step 3. Configure Cloudflare Pages
+
+Install frontend dependencies if you have not already:
 
 ```bash
 cd chatv1/frontend
 npm install
-npm run build
-npx wrangler pages deploy dist --project-name blockchat
 ```
 
-On first run, Wrangler will prompt you to log in and create the project.
+The frontend already includes frontend/wrangler.jsonc and a Pages deploy script.
 
-**Option B: Cloudflare Dashboard**
+Set these environment variables in Pages:
 
-1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages** → **Create a project**.
-2. Connect your GitHub repo.
-3. Set:
-   - **Framework preset:** Vite
-   - **Root directory:** `chatv1/frontend`
-   - **Build command:** `npm run build`
-   - **Build output directory:** `dist`
-4. Under **Environment variables**, add:
+| Variable | Value |
+| --- | --- |
+| VITE_API_URL | your Worker URL, for example https://blockchat-api.your-subdomain.workers.dev |
+| VITE_REALTIME_ENABLED | false |
+| VITE_FILE_UPLOADS_ENABLED | false |
+| VITE_POLL_INTERVAL_MS | 5000 |
 
-   | Variable | Value |
-   |---|---|
-   | `VITE_API_URL` | `https://chatv1-production-xxxx.railway.app` |
+### Deploy with Wrangler
 
-5. Click **Save and Deploy**.
+```bash
+cd chatv1/frontend
+npm run build
+npm run deploy:pages -- --project-name blockchat
+```
 
-Your app will be live at `https://blockchat.pages.dev` (or whatever project name you chose).
+### Or deploy from the Cloudflare dashboard
 
-### Step 3 — Update FRONTEND_URL on Railway
+Use these settings:
 
-Once you have the Pages URL, go back to Railway and update `FRONTEND_URL` to match. This is needed for CORS. Railway will restart automatically.
+- framework preset: Vite
+- root directory: chatv1/frontend
+- build command: npm run build
+- build output directory: dist
 
-### Step 4 — Verify
+Then add the same Pages environment variables listed above.
 
-Open `https://blockchat.pages.dev`, register an account, create a server, and send a message. Check the Railway logs if anything fails.
+## Step 4. Update Worker CORS origin
 
----
+After Pages gives you the final hostname, update FRONTEND_URL for the Worker so CORS matches your deployed frontend.
 
-## Adding a custom domain (optional)
+If you use a custom domain, set FRONTEND_URL to that custom domain instead.
 
-**Cloudflare Pages:**
-1. In the Pages project → **Custom domains** → **Set up a custom domain**.
-2. Enter your domain. Cloudflare will auto-configure the DNS record since you manage the domain there.
+## Step 5. Smoke test production
 
-**Railway:**
-1. In **Settings → Networking → Custom domain**, add your API subdomain (e.g. `api.yourdomain.com`).
-2. Add a CNAME record in Cloudflare DNS pointing to the Railway-generated URL.
-3. Update `FRONTEND_URL` on Railway and `VITE_API_URL` on Cloudflare Pages accordingly, then redeploy both.
+After both services are live:
 
----
+1. register a new user
+2. create a server
+3. create or view a text channel
+4. send a message
+5. open DMs and send a DM
+6. edit or delete a message to confirm the REST paths work
 
-## Environment Variables Reference
+## Environment reference
 
-### Backend (`backend/.env`)
+### Backend local env
 
-| Variable | Description | Required in prod |
-|---|---|---|
-| `NODE_ENV` | Set to `production` | Yes |
-| `DATABASE_URL` | Neon pooled connection string | Yes |
-| `DIRECT_DATABASE_URL` | Neon direct connection string (migrations) | Yes |
-| `JWT_SECRET` | JWT signing secret | Yes |
-| `JWT_REFRESH_SECRET` | Refresh token secret | Yes |
-| `FRONTEND_URL` | Your Cloudflare Pages URL (for CORS) | Yes |
-| `PORT` | Server port (Railway sets this automatically) | No |
-| `UPLOAD_DIR` | File upload directory | No |
-| `MAX_FILE_SIZE` | Max upload size in bytes | No |
+backend/.env.example contains the local Express settings.
 
-### Frontend (`frontend/.env`)
+| Variable | Required locally | Used by Worker runtime | Notes |
+| --- | --- | --- | --- |
+| DATABASE_URL | Yes | Yes | Neon pooled connection |
+| DIRECT_DATABASE_URL | Yes | No | Only needed for Prisma migrations |
+| JWT_SECRET | Yes | Yes | Access token signing secret |
+| JWT_REFRESH_SECRET | Yes | Yes | Refresh token secret |
+| FRONTEND_URL | Yes | Yes | CORS origin |
+| PORT | Yes for Express | No | Express only |
+| APP_MODE | Recommended | Yes | local or cloudflare |
+| UPLOAD_DIR | Optional | No | Express only |
+| MAX_FILE_SIZE | Optional | No | Express only |
 
-| Variable | Description | Required in prod |
-|---|---|---|
-| `VITE_API_URL` | Your Railway backend URL (no trailing slash) | Yes |
+### Frontend env
 
-In development, leave `VITE_API_URL` empty — the Vite proxy handles routing.
+frontend/.env.example contains the production-safe defaults.
 
----
+| Variable | Recommended on Pages | Purpose |
+| --- | --- | --- |
+| VITE_API_URL | Yes | Worker origin without trailing slash |
+| VITE_REALTIME_ENABLED | Yes | false on Cloudflare deployment |
+| VITE_FILE_UPLOADS_ENABLED | Yes | false until R2 or equivalent is added |
+| VITE_POLL_INTERVAL_MS | Yes | polling interval for message and DM refresh |
 
-## API Reference
+## Current Cloudflare feature support
 
-### Auth
+| Feature | Local Express mode | Cloudflare mode |
+| --- | --- | --- |
+| Register / login / refresh | Yes | Yes |
+| Server and member management | Yes | Yes |
+| Channel list and permissions | Yes | Yes |
+| Channel messages | Yes | Yes |
+| Direct messages | Yes | Yes |
+| Real-time Socket.IO events | Yes | No |
+| Typing indicators | Yes | No |
+| Presence updates | Yes | No |
+| Voice signaling | Yes | No |
+| Local-disk file uploads | Yes | No |
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/auth/register` | Register |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/logout` | Logout |
-| POST | `/api/auth/refresh` | Refresh tokens |
+## Files added for Cloudflare deployment
 
-### Users
+- backend/src/worker.ts: Worker API entrypoint
+- backend/wrangler.jsonc: Worker config
+- backend/.dev.vars.example: local Worker secrets template
+- frontend/wrangler.jsonc: Pages config
+- frontend/src/config/runtime.ts: runtime capability flags
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/users/me` | Current user profile |
-| PUT | `/api/users/me` | Update profile |
-| GET | `/api/users?q=` | Search users (for DMs / adding members) |
-| GET | `/api/users/:id` | Get user by ID |
+## Recommended next improvements
 
-### Servers
+If you want Cloudflare parity with the original Railway-era feature set, these are the next pieces to add:
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/servers` | List your servers |
-| POST | `/api/servers` | Create server |
-| GET | `/api/servers/:id/channels` | List channels (filtered by your role) |
-| POST | `/api/servers/:id/channels` | Create channel (admin+) |
-| PATCH | `/api/servers/:id/channels/:channelId` | Update channel minRole (admin+) |
-| DELETE | `/api/servers/:id/channels/:channelId` | Delete channel (admin+) |
-| GET | `/api/servers/:id/members` | List members |
-| POST | `/api/servers/:id/members` | Add member (admin+) |
-| PATCH | `/api/servers/:id/members/:userId` | Change member role (owner only) |
-| DELETE | `/api/servers/:id/members/:userId` | Remove member (admin+) |
-
-### Channels & Messages
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/channels/:id/messages` | Get messages |
-
-### Direct Messages
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/dms` | List DM conversations |
-| GET | `/api/dms/:userId` | Get messages with a user |
-| POST | `/api/dms/:userId` | Send a DM (REST fallback) |
+1. Durable Objects for realtime rooms, presence, and voice signaling.
+2. R2 for file uploads and attachment delivery.
+3. A shared data-access layer so the Express and Worker backends do not duplicate route logic.
 
 ### Files
 

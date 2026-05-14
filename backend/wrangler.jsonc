@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blockchat-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_MODE": "cloudflare",
+    "FRONTEND_URL": "https://your-project.pages.dev"
+  }
+}

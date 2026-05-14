@@ -2,6 +2,7 @@ import { Channel, Message, User } from '../../types';
 import MessageList from '../Chat/MessageList';
 import MessageInput from '../Chat/MessageInput';
 import VoiceCall from '../Voice/VoiceCall';
+import { runtimeConfig } from '../../config/runtime';
 
 interface ChatAreaProps {
   channel: Channel | null;
@@ -96,7 +97,16 @@ export default function ChatArea({
         </button>
       </header>
 
-      {isVoice && <VoiceCall channel={channel} currentUser={currentUser} />}
+      {isVoice && runtimeConfig.realtimeEnabled && <VoiceCall channel={channel} currentUser={currentUser} />}
+
+      {isVoice && !runtimeConfig.realtimeEnabled && (
+        <div className="flex-1 flex items-center justify-center px-6 text-center text-zinc-400">
+          <div className="max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/70 px-6 py-8">
+            <p className="text-zinc-100 font-semibold mb-2">Voice is disabled in the Cloudflare deployment</p>
+            <p className="text-sm leading-6">This project now deploys cleanly to Pages and Workers, but voice and other Socket.IO features need a Durable Object based realtime layer before they can run on Cloudflare.</p>
+          </div>
+        </div>
+      )}
 
       {!isVoice && (
         <>

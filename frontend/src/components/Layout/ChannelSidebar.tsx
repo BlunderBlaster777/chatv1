@@ -177,7 +177,8 @@ function ChannelItem({ channel, isSelected, onSelect }: {
       </span>
       <span className="truncate">{channel.name}</span>
       {channel.minRole && channel.minRole !== 'MEMBER' && (
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-600 ml-auto shrink-0" title={`${channel.minRole}+`}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-600 ml-auto shrink-0" aria-label={`${channel.minRole}+`}>
+          <title>{`${channel.minRole}+`}</title>
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
           <path d="M7 11V7a5 5 0 0110 0v4"/>
         </svg>

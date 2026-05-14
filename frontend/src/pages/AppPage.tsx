@@ -8,10 +8,11 @@ import MainLayout from '../components/Layout/MainLayout';
 import SettingsModal from '../components/DM/SettingsModal';
 import apiClient from '../api/client';
 import { Server, Channel, Message, ServerMember } from '../types';
+import { runtimeConfig } from '../config/runtime';
 
 export default function AppPage() {
   const { user, logout } = useAuth();
-  const { socket } = useSocket();
+  const { socket, realtimeEnabled } = useSocket();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const { showNotification } = useNotifications();
@@ -24,6 +25,11 @@ export default function AppPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [members, setMembers] = useState<ServerMember[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
+  const loadChannelMessages = useCallback(async (channelId: string) => {
+    const { data } = await apiClient.get(`/channels/${channelId}/messages`);
+    setMessages(data);
+  }, []);
 
   // Load servers on mount
   useEffect(() => {
@@ -40,7 +46,7 @@ export default function AppPage() {
     setSelectedServer(server);
     setMessages([]);
     setSelectedChannel(null);
-    socket?.emit('server:join', serverId);
+    if (realtimeEnabled) socket?.emit('server:join', serverId);
     try {
       const [channelsRes, membersRes] = await Promise.all([
         apiClient.get(`/servers/${serverId}/channels`),
@@ -51,28 +57,27 @@ export default function AppPage() {
       const textChannels = channelsRes.data.filter((c: Channel) => c.type === 'TEXT');
       if (textChannels.length > 0) handleSelectChannel(textChannels[0].id, channelsRes.data);
     } catch {}
-  }, [servers, socket]);
+  }, [servers, socket, realtimeEnabled]);
 
   const handleSelectChannel = useCallback(async (channelId: string, channelList?: Channel[]) => {
     const list = channelList || channels;
     const channel = list.find(c => c.id === channelId);
     if (!channel) return;
-    if (selectedChannel) socket?.emit('channel:leave', selectedChannel.id);
+    if (selectedChannel && realtimeEnabled) socket?.emit('channel:leave', selectedChannel.id);
     setSelectedChannel(channel);
-    socket?.emit('channel:join', channelId);
+    if (realtimeEnabled) socket?.emit('channel:join', channelId);
     setMessages([]);
     setTypingUsers([]);
     if (channel.type === 'TEXT') {
       try {
-        const { data } = await apiClient.get(`/channels/${channelId}/messages`);
-        setMessages(data);
+        await loadChannelMessages(channelId);
       } catch {}
     }
-  }, [channels, selectedChannel, socket]);
+  }, [channels, selectedChannel, socket, realtimeEnabled, loadChannelMessages]);
 
   // Socket event listeners
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !realtimeEnabled) return;
 
     socket.on('chat:message', (message: Message) => {
       setMessages(prev => {
@@ -133,40 +138,67 @@ export default function AppPage() {
       socket.off('typing:stop');
       socket.off('presence:update');
     };
-  }, [socket, user, members, showNotification]);
+  }, [socket, user, members, showNotification, realtimeEnabled]);
+
+  useEffect(() => {
+    if (realtimeEnabled || !selectedChannel || selectedChannel.type !== 'TEXT') return;
+
+    loadChannelMessages(selectedChannel.id).catch(() => {});
+    const intervalId = window.setInterval(() => {
+      loadChannelMessages(selectedChannel.id).catch(() => {});
+    }, runtimeConfig.pollingIntervalMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [selectedChannel?.id, selectedChannel?.type, realtimeEnabled, loadChannelMessages]);
 
   // Re-join the channel room when socket connects OR when selectedChannel changes.
   // The initial channel:join fires before the socket is ready (race condition),
   // so this covers both: socket-connects-after-channel-set, and channel-set-after-socket-connects.
   useEffect(() => {
-    if (!socket || !selectedChannel) return;
+    if (!socket || !selectedChannel || !realtimeEnabled) return;
     socket.emit('channel:join', selectedChannel.id);
-  }, [socket, selectedChannel?.id]);
+  }, [socket, selectedChannel?.id, realtimeEnabled]);
 
-  const handleSendMessage = useCallback((content: string) => {
-    if (!selectedChannel || !socket || !user) return;
-    const optimistic: Message = {
-      id: `temp-${Date.now()}`,
-      content,
-      authorId: user.id,
-      channelId: selectedChannel.id,
-      createdAt: new Date().toISOString(),
-      editedAt: null,
-      author: { id: user.id, username: user.username, avatar: user.avatar },
-      reactions: [],
-      files: [],
-    };
-    setMessages(prev => [...prev, optimistic]);
-    socket.emit('chat:message', { channelId: selectedChannel.id, content });
-  }, [selectedChannel, socket, user]);
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!selectedChannel || !user) return;
+    if (realtimeEnabled && socket) {
+      const optimistic: Message = {
+        id: `temp-${Date.now()}`,
+        content,
+        authorId: user.id,
+        channelId: selectedChannel.id,
+        createdAt: new Date().toISOString(),
+        editedAt: null,
+        author: { id: user.id, username: user.username, avatar: user.avatar },
+        reactions: [],
+        files: [],
+      };
+      setMessages(prev => [...prev, optimistic]);
+      socket.emit('chat:message', { channelId: selectedChannel.id, content });
+      return;
+    }
 
-  const handleEditMessage = useCallback((messageId: string, content: string) => {
-    socket?.emit('chat:edit', { messageId, content });
-  }, [socket]);
+    const { data } = await apiClient.post(`/channels/${selectedChannel.id}/messages`, { content });
+    setMessages(prev => [...prev, data]);
+  }, [selectedChannel, socket, user, realtimeEnabled]);
 
-  const handleDeleteMessage = useCallback((messageId: string) => {
-    socket?.emit('chat:delete', { messageId });
-  }, [socket]);
+  const handleEditMessage = useCallback(async (messageId: string, content: string) => {
+    if (realtimeEnabled && socket) {
+      socket.emit('chat:edit', { messageId, content });
+      return;
+    }
+    const { data } = await apiClient.put(`/messages/${messageId}`, { content });
+    setMessages(prev => prev.map(m => m.id === messageId ? data : m));
+  }, [socket, realtimeEnabled]);
+
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    if (realtimeEnabled && socket) {
+      socket.emit('chat:delete', { messageId });
+      return;
+    }
+    await apiClient.delete(`/messages/${messageId}`);
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  }, [socket, realtimeEnabled]);
 
   const handleCreateServer = useCallback(async (name: string) => {
     try {

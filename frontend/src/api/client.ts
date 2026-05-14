@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { runtimeConfig } from '../config/runtime';
 
 // In development, VITE_API_URL is unset and the Vite proxy forwards /api → localhost:3001.
-// In production (Cloudflare Pages), VITE_API_URL=https://your-backend.railway.app.
-const API_ORIGIN = import.meta.env.VITE_API_URL ?? '';
+// In production (Cloudflare Pages), VITE_API_URL should point at the Cloudflare Worker URL.
+const API_ORIGIN = runtimeConfig.apiOrigin;
 
 const apiClient = axios.create({
   baseURL: `${API_ORIGIN}/api`,

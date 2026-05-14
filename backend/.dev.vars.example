@@ -1,0 +1,5 @@
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+JWT_SECRET=replace-me
+JWT_REFRESH_SECRET=replace-me-too
+FRONTEND_URL=http://localhost:5173
+APP_MODE=cloudflare

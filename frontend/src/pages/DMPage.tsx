@@ -6,6 +6,7 @@ import apiClient from '../api/client';
 import { DirectMessage } from '../types';
 import DMSidebar from '../components/DM/DMSidebar';
 import ServerSidebar from '../components/Layout/ServerSidebar';
+import { runtimeConfig } from '../config/runtime';
 
 interface DMConversation {
   user: { id: string; username: string; avatar?: string | null; status: string };
@@ -34,7 +35,7 @@ function formatDateTime(dateStr: string) {
 export default function DMPage() {
   const { userId: partnerId } = useParams<{ userId: string }>();
   const { user, logout } = useAuth();
-  const { socket } = useSocket();
+  const { socket, realtimeEnabled } = useSocket();
   const navigate = useNavigate();
 
   const [leftOpen, setLeftOpen] = useState(false);
@@ -49,23 +50,33 @@ export default function DMPage() {
   const typingRef = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const loadConversations = useCallback(async () => {
+    const { data } = await apiClient.get('/dms');
+    setConversations(data);
+  }, []);
+
+  const loadPartnerMessages = useCallback(async (userId: string) => {
+    const { data } = await apiClient.get(`/dms/${userId}`);
+    setMessages(data);
+  }, []);
+
   useEffect(() => {
     if (!partnerId) return;
     apiClient.get(`/users/${partnerId}`).then(r => setPartner(r.data)).catch(() => {});
-    apiClient.get(`/dms/${partnerId}`).then(r => setMessages(r.data)).catch(() => {});
-  }, [partnerId]);
+    loadPartnerMessages(partnerId).catch(() => {});
+  }, [partnerId, loadPartnerMessages]);
 
   useEffect(() => {
-    apiClient.get('/dms').then(r => setConversations(r.data)).catch(() => {});
+    loadConversations().catch(() => {});
     apiClient.get('/servers').then(r => setServers(r.data)).catch(() => {});
-  }, []);
+  }, [loadConversations]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !realtimeEnabled) return;
     const handleDM = (dm: DirectMessage) => {
       const isRelevant =
         (dm.senderId === partnerId && dm.receiverId === user?.id) ||
@@ -79,7 +90,7 @@ export default function DMPage() {
           return [...prev, dm];
         });
       }
-      apiClient.get('/dms').then(r => setConversations(r.data)).catch(() => {});
+      loadConversations().catch(() => {});
     };
     const handleTypingStart = ({ userId: uid }: { userId: string }) => {
       if (uid !== partnerId) return;
@@ -97,9 +108,24 @@ export default function DMPage() {
       socket.off('dm:typing:start', handleTypingStart);
       socket.off('dm:typing:stop', handleTypingStop);
     };
-  }, [socket, partnerId, user?.id]);
+  }, [socket, partnerId, user?.id, realtimeEnabled, loadConversations]);
+
+  useEffect(() => {
+    if (realtimeEnabled) return;
+
+    loadConversations().catch(() => {});
+    if (partnerId) loadPartnerMessages(partnerId).catch(() => {});
+
+    const intervalId = window.setInterval(() => {
+      loadConversations().catch(() => {});
+      if (partnerId) loadPartnerMessages(partnerId).catch(() => {});
+    }, runtimeConfig.pollingIntervalMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [partnerId, realtimeEnabled, loadConversations, loadPartnerMessages]);
 
   const startTyping = useCallback(() => {
+    if (!realtimeEnabled) return;
     if (!typingRef.current && partnerId) {
       typingRef.current = true;
       socket?.emit('dm:typing:start', { receiverId: partnerId });
@@ -109,27 +135,34 @@ export default function DMPage() {
       typingRef.current = false;
       if (partnerId) socket?.emit('dm:typing:stop', { receiverId: partnerId });
     }, 2000);
-  }, [socket, partnerId]);
+  }, [socket, partnerId, realtimeEnabled]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = content.trim();
     if (!trimmed || !partnerId || !user) return;
-    const optimistic: DirectMessage = {
-      id: `temp-${Date.now()}`,
-      content: trimmed,
-      senderId: user.id,
-      receiverId: partnerId,
-      createdAt: new Date().toISOString(),
-      editedAt: null,
-      sender: { id: user.id, username: user.username, avatar: user.avatar },
-    };
-    setMessages(prev => [...prev, optimistic]);
     setContent('');
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingRef.current = false;
-    socket?.emit('dm:typing:stop', { receiverId: partnerId });
-    socket?.emit('dm:message', { receiverId: partnerId, content: trimmed });
-  }, [content, partnerId, user, socket]);
+    if (realtimeEnabled && socket) {
+      const optimistic: DirectMessage = {
+        id: `temp-${Date.now()}`,
+        content: trimmed,
+        senderId: user.id,
+        receiverId: partnerId,
+        createdAt: new Date().toISOString(),
+        editedAt: null,
+        sender: { id: user.id, username: user.username, avatar: user.avatar },
+      };
+      setMessages(prev => [...prev, optimistic]);
+      socket.emit('dm:typing:stop', { receiverId: partnerId });
+      socket.emit('dm:message', { receiverId: partnerId, content: trimmed });
+      return;
+    }
+
+    const { data } = await apiClient.post(`/dms/${partnerId}`, { content: trimmed });
+    setMessages(prev => [...prev, data]);
+    loadConversations().catch(() => {});
+  }, [content, partnerId, user, socket, realtimeEnabled, loadConversations]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }

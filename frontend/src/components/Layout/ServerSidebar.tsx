@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Server, User } from '../../types';
 
 interface ServerSidebarProps {
@@ -18,7 +18,6 @@ export default function ServerSidebar({
   const [showCreate, setShowCreate] = useState(false);
   const [newServerName, setNewServerName] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();

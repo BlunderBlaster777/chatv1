@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import apiClient from '../../api/client';
 import { Channel, ServerMember } from '../../types';
 
@@ -13,7 +13,6 @@ interface Props {
 
 type Tab = 'members' | 'channels' | 'permissions';
 
-const ROLE_RANK: Record<string, number> = { MEMBER: 0, ADMIN: 1, OWNER: 2 };
 const ROLE_LABELS: Record<string, string> = { OWNER: 'Owner', ADMIN: 'Admin', MEMBER: 'Member' };
 const MIN_ROLE_OPTIONS: Array<{ value: 'MEMBER' | 'ADMIN' | 'OWNER'; label: string }> = [
   { value: 'MEMBER', label: 'Everyone' },

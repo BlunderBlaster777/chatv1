@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DirectMessage, User } from '../../types';
-import apiClient from '../../api/client';
 import SettingsModal from './SettingsModal';
 
 interface DMConversation {
