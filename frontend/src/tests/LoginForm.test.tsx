@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/dom';
 import '@testing-library/jest-dom';
 import LoginForm from '../components/Auth/LoginForm';
 import { ToastContext } from '../components/Notifications/ToastNotification';
 import { AuthContext } from '../contexts/AuthContext';
-import React from 'react';
 
 const mockLogin = vi.fn();
 const mockShowToast = vi.fn();

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Channel, Message, User } from '../../types';
 import MessageList from '../Chat/MessageList';
 import MessageInput from '../Chat/MessageInput';

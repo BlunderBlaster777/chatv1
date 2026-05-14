@@ -7,7 +7,8 @@ const prisma = new PrismaClient();
 
 router.get('/:id/messages', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { before, limit = '50' } = req.query;
+    const { before } = req.query;
+    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 100);
     const messages = await prisma.message.findMany({
       where: {
         channelId: req.params.id,
@@ -19,7 +20,7 @@ router.get('/:id/messages', authenticate, async (req: AuthRequest, res: Response
         files: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: parseInt(limit as string, 10),
+      take: limit,
     });
     res.json(messages.reverse());
   } catch { res.status(500).json({ error: 'Internal server error' }); }

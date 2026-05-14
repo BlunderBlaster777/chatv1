@@ -1,8 +1,11 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import { config } from './config/config';
 import { authenticate, AuthRequest } from './middleware/auth';
 import authRoutes from './routes/auth';
@@ -17,9 +20,13 @@ const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 200, standardHeaders: t
 
 const prisma = new PrismaClient();
 
+const dmSendSchema = z.object({ content: z.string().trim().min(1).max(4000) });
+
 export function createApp() {
   const app = express();
 
+  app.use(helmet());
+  app.use(compression());
   app.use(cors({ origin: config.frontendUrl, credentials: true }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -36,7 +43,8 @@ export function createApp() {
   // Direct messages routes
   app.get('/api/dms/:userId', apiLimiter, authenticate, async (req: AuthRequest, res) => {
     try {
-      const { before, limit = '50' } = req.query;
+      const { before } = req.query;
+      const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 100);
       const messages = await prisma.directMessage.findMany({
         where: {
           OR: [
@@ -47,7 +55,7 @@ export function createApp() {
         },
         include: { sender: { select: { id: true, username: true, avatar: true } } },
         orderBy: { createdAt: 'desc' },
-        take: parseInt(limit as string, 10),
+        take: limit,
       });
       res.json(messages.reverse());
     } catch { res.status(500).json({ error: 'Internal server error' }); }
@@ -55,10 +63,10 @@ export function createApp() {
 
   app.post('/api/dms/:userId', apiLimiter, authenticate, async (req: AuthRequest, res) => {
     try {
-      const { content } = req.body;
-      if (!content?.trim()) { res.status(400).json({ error: 'Content required' }); return; }
+      const parsed = dmSendSchema.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: 'Content required (1–4000 characters)' }); return; }
       const dm = await prisma.directMessage.create({
-        data: { content: content.trim(), senderId: req.userId!, receiverId: req.params.userId },
+        data: { content: parsed.data.content, senderId: req.userId!, receiverId: req.params.userId },
         include: { sender: { select: { id: true, username: true, avatar: true } } },
       });
       res.status(201).json(dm);

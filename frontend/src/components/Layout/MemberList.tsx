@@ -1,4 +1,3 @@
-import React from 'react';
 import { ServerMember } from '../../types';
 
 interface MemberListProps {

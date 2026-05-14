@@ -1,4 +1,4 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
@@ -7,7 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AppPage from './pages/AppPage';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
+function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#36393f', color: '#dcddde' }}>
@@ -17,7 +17,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
+function PublicRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#36393f', color: '#dcddde' }}>

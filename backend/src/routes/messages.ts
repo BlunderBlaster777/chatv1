@@ -1,16 +1,20 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
 
+const messageContentSchema = z.object({ content: z.string().trim().min(1).max(4000) });
+const reactionSchema = z.object({ emoji: z.string().trim().min(1).max(10) });
+
 router.post('/:channelId/messages', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { content } = req.body;
-    if (!content?.trim()) { res.status(400).json({ error: 'Message content required' }); return; }
+    const parsed = messageContentSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Message content required (1–4000 characters)' }); return; }
     const message = await prisma.message.create({
-      data: { content: content.trim(), authorId: req.userId!, channelId: req.params.channelId },
+      data: { content: parsed.data.content, authorId: req.userId!, channelId: req.params.channelId },
       include: {
         author: { select: { id: true, username: true, avatar: true } },
         reactions: true,
@@ -23,14 +27,14 @@ router.post('/:channelId/messages', authenticate, async (req: AuthRequest, res: 
 
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { content } = req.body;
-    if (!content?.trim()) { res.status(400).json({ error: 'Message content required' }); return; }
+    const parsed = messageContentSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Message content required (1–4000 characters)' }); return; }
     const message = await prisma.message.findUnique({ where: { id: req.params.id } });
     if (!message) { res.status(404).json({ error: 'Message not found' }); return; }
     if (message.authorId !== req.userId) { res.status(403).json({ error: 'Forbidden' }); return; }
     const updated = await prisma.message.update({
       where: { id: req.params.id },
-      data: { content: content.trim(), editedAt: new Date() },
+      data: { content: parsed.data.content, editedAt: new Date() },
       include: {
         author: { select: { id: true, username: true, avatar: true } },
         reactions: true,
@@ -53,8 +57,9 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
 router.post('/:id/reactions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { emoji } = req.body;
-    if (!emoji) { res.status(400).json({ error: 'Emoji required' }); return; }
+    const parsed = reactionSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Valid emoji required' }); return; }
+    const { emoji } = parsed.data;
     const existing = await prisma.reaction.findUnique({
       where: { messageId_userId_emoji: { messageId: req.params.id, userId: req.userId!, emoji } },
     });

@@ -25,7 +25,7 @@ export class AuthService {
     if (!user) throw new Error('Invalid credentials');
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new Error('Invalid credentials');
-    const accessToken = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: config.jwtExpiresIn as any });
+    const accessToken = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
     const refreshTokenValue = uuidv4();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({ data: { token: refreshTokenValue, userId: user.id, expiresAt } });
@@ -48,7 +48,7 @@ export class AuthService {
   async refreshTokens(refreshToken: string) {
     const tokenRecord = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
     if (!tokenRecord || tokenRecord.expiresAt < new Date()) throw new Error('Invalid refresh token');
-    const accessToken = jwt.sign({ userId: tokenRecord.userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn as any });
+    const accessToken = jwt.sign({ userId: tokenRecord.userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
     const newRefreshToken = uuidv4();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.delete({ where: { token: refreshToken } });
