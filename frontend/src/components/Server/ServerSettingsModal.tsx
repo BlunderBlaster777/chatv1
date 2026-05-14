@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import apiClient from '../../api/client';
 import { Channel, ServerMember } from '../../types';
+import { useToast } from '../Notifications/ToastNotification';
 
 interface Props {
   serverId: string;
@@ -202,7 +204,9 @@ function ChannelsTab({ serverId, currentUserRole, onChanged }: {
   const [name, setName] = useState('');
   const [type, setType] = useState<'TEXT' | 'VOICE'>('TEXT');
   const [creating, setCreating] = useState(false);
+  const { showToast } = useToast();
   const canManage = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
+  const canCreate = name.trim().length > 0 && !creating;
 
   const loadChannels = () => {
     apiClient.get(`/servers/${serverId}/channels`).then(r => setChannels(r.data)).catch(() => {});
@@ -218,7 +222,10 @@ function ChannelsTab({ serverId, currentUserRole, onChanged }: {
       setName('');
       loadChannels();
       onChanged();
-    } catch {}
+      showToast('Channel created', 'success');
+    } catch (err: any) {
+      showToast(err?.response?.data?.error || 'Could not create channel', 'error');
+    }
     setCreating(false);
   };
 
@@ -227,7 +234,10 @@ function ChannelsTab({ serverId, currentUserRole, onChanged }: {
       await apiClient.delete(`/servers/${serverId}/channels/${channelId}`);
       loadChannels();
       onChanged();
-    } catch {}
+      showToast('Channel deleted', 'success');
+    } catch (err: any) {
+      showToast(err?.response?.data?.error || 'Could not delete channel', 'error');
+    }
   };
 
   return (
@@ -242,6 +252,9 @@ function ChannelsTab({ serverId, currentUserRole, onChanged }: {
               placeholder="channel-name"
               className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm outline-none focus:border-violet-500 transition-colors"
             />
+            <p className="text-xs text-zinc-500">
+              Enter a channel name to enable creation.
+            </p>
             <div className="flex gap-2">
               {(['TEXT', 'VOICE'] as const).map(t => (
                 <button
@@ -260,8 +273,13 @@ function ChannelsTab({ serverId, currentUserRole, onChanged }: {
             </div>
             <button
               type="submit"
-              disabled={!name.trim() || creating}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+              disabled={!canCreate}
+              className={[
+                'px-4 py-2 text-sm font-semibold rounded-lg transition-colors',
+                canCreate
+                  ? 'bg-violet-600 hover:bg-violet-500 text-white'
+                  : 'bg-zinc-800 border border-zinc-700 text-zinc-500 cursor-not-allowed'
+              ].join(' ')}
             >
               {creating ? 'Creating…' : 'Create Channel'}
             </button>
@@ -382,19 +400,19 @@ export default function ServerSettingsModal({ serverId, serverName, currentUserR
     { key: 'permissions', label: 'Permissions' },
   ];
 
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-black/60 overflow-hidden">
+  const modal = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/72 backdrop-blur-sm p-3 sm:p-5">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0f141d] shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between gap-4 border-b border-white/8 px-6 py-5 shrink-0 sm:px-7">
           <div>
-            <h2 className="text-zinc-100 font-semibold text-base">{serverName}</h2>
-            <p className="text-zinc-500 text-xs mt-0.5">Server Settings</p>
+            <h2 className="text-slate-100 font-semibold text-lg leading-none">{serverName}</h2>
+            <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Server Settings</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-500 hover:text-zinc-200 p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/[0.05] hover:text-slate-100"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -403,16 +421,16 @@ export default function ServerSettingsModal({ serverId, serverName, currentUserR
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-6 pt-3 border-b border-zinc-800 shrink-0">
+        <div className="flex gap-2 border-b border-white/8 px-6 pt-3 shrink-0 sm:px-7">
           {TABS.map(t => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+              className={`-mb-px rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 tab === t.key
-                  ? 'text-violet-400 border-violet-500'
-                  : 'text-zinc-500 border-transparent hover:text-zinc-300'
+                  ? 'border-violet-500 text-violet-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-200'
               }`}
             >
               {t.label}
@@ -421,7 +439,7 @@ export default function ServerSettingsModal({ serverId, serverName, currentUserR
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-7">
           {tab === 'members' && (
             <MembersTab serverId={serverId} currentUserRole={currentUserRole} onChanged={onMembersChanged} />
           )}
@@ -435,4 +453,6 @@ export default function ServerSettingsModal({ serverId, serverName, currentUserR
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modal, document.body) : modal;
 }

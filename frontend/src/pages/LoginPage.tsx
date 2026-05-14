@@ -5,27 +5,37 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4 py-8">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-violet-600 mb-4">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-            </svg>
-          </div>
-          <h1 className="text-zinc-100 text-2xl font-bold mb-1">Welcome back</h1>
-          <p className="text-zinc-400 text-sm">Sign in to continue to BlockChat.</p>
-        </div>
+    <div className="auth-shell">
+      <div className="auth-grid">
+        <main className="w-full flex items-center justify-center">
+          <div className="auth-panel p-6 sm:p-7">
+            <div className="mb-7 flex items-start justify-between gap-4">
+              <div>
+                <div className="auth-appmark">
+                  <img src="/logo.png" alt="BlockChat logo" className="border border-white/10 bg-white/5 p-1" />
+                  <div>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500">BlockChat</p>
+                    <p className="mt-1 text-sm text-slate-400">Private group chat</p>
+                  </div>
+                </div>
+                <h2 className="mt-5 text-2xl font-semibold tracking-tight text-white">Sign in</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Continue to your channels and direct messages.
+                </p>
+              </div>
+              <span className="brand-kicker mt-1">Live</span>
+            </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl shadow-black/40">
-          <LoginForm onSuccess={() => navigate('/app')} />
-          <p className="mt-5 text-center text-zinc-500 text-xs">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-violet-400 hover:text-violet-300 transition-colors font-medium">
-              Create one
-            </Link>
-          </p>
-        </div>
+            <LoginForm onSuccess={() => navigate('/app')} />
+
+            <div className="mt-5 border-t border-white/8 pt-4 text-center text-sm text-slate-500">
+              Don&apos;t have an account?{' '}
+              <Link to="/register" className="font-semibold text-slate-200 transition-colors hover:text-white">
+                Create one
+              </Link>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );

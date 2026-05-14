@@ -27,9 +27,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div>
-        <label htmlFor="login-email" className="block text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+        <label htmlFor="login-email" className="auth-label">
           Email
         </label>
         <input
@@ -39,11 +39,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           onChange={e => setEmail(e.target.value)}
           required
           placeholder="you@example.com"
-          className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors"
+          className="auth-input"
         />
       </div>
       <div>
-        <label htmlFor="login-password" className="block text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+        <label htmlFor="login-password" className="auth-label">
           Password
         </label>
         <input
@@ -53,13 +53,13 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           onChange={e => setPassword(e.target.value)}
           required
           placeholder="••••••••"
-          className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors"
+          className="auth-input"
         />
       </div>
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors mt-1"
+        className="brand-button mt-1"
       >
         {loading ? 'Signing in…' : 'Sign In'}
       </button>

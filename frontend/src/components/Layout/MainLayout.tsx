@@ -46,7 +46,7 @@ export default function MainLayout({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950 relative">
+    <div className="flex h-screen overflow-hidden bg-[#0a0d14] relative text-slate-100">
 
       {/* ── Backdrop (mobile only) ─────────────────────────────── */}
       {(leftOpen || rightOpen) && (
